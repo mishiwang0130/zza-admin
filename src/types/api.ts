@@ -184,3 +184,97 @@ export interface StatusReq {
   id: string;
   status: number;
 }
+
+/* ------------------------------- 字典类型 ------------------------------- */
+
+/** 字典类型返回体 */
+export interface DictTypeVO {
+  id: string;
+  name: string;
+  /** 字典类型编码，前端按它取字典数据 */
+  type: string;
+  /** 0 启用、1 停用 */
+  status: number;
+  remark: string;
+  createTime: string;
+}
+
+/** 字典类型精简返回体：作为字典数据的类型下拉，值为编码、标签为名称 */
+export interface DictTypeSimpleVO {
+  id: string;
+  type: string;
+  name: string;
+}
+
+/** 字典类型分页入参 */
+export interface DictTypePageQuery extends PageQuery {
+  name?: string;
+  type?: string;
+  status?: number | null;
+}
+
+/** 字典类型新增 / 修改入参 */
+export interface DictTypeFormReq {
+  id?: string;
+  name: string;
+  type: string;
+  status: number;
+  remark: string;
+}
+
+/* ------------------------------- 字典数据 ------------------------------- */
+
+/** 字典数据返回体 */
+export interface DictDataVO {
+  id: string;
+  /** 所属字典类型编码 */
+  dictType: string;
+  label: string;
+  value: string;
+  sort: number;
+  /** 0 启用、1 停用 */
+  status: number;
+  remark: string;
+  createTime: string;
+}
+
+/** 字典数据精简返回体：下拉与标签展示用 */
+export interface DictDataSimpleVO {
+  label: string;
+  value: string;
+}
+
+/** 字典数据分页入参 */
+export interface DictDataPageQuery extends PageQuery {
+  /** 所属字典类型编码，精确匹配 */
+  dictType?: string;
+  /** 字典标签，模糊匹配 */
+  label?: string;
+  status?: number | null;
+}
+
+/** 字典数据新增 / 修改入参 */
+export interface DictDataFormReq {
+  id?: string;
+  dictType: string;
+  label: string;
+  value: string;
+  sort: number;
+  status: number;
+  remark: string;
+}
+
+/* ------------------------------ 行政区划 ------------------------------ */
+
+/** 行政区划节点：既作为逐级查询的结果，也作为整棵树的节点 */
+export interface AreaVO {
+  id: string;
+  /** 上级区划 ID，0 表示省级 */
+  parentId: string;
+  name: string;
+  /** 行政区划代码 */
+  code: string;
+  /** 1 省、2 市、3 区县 */
+  level: number;
+  children: AreaVO[] | null;
+}

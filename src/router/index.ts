@@ -59,6 +59,20 @@ export const staticRoutes: RouteRecordRaw[] = [
           modulePath: '/dashboard',
         },
       },
+      {
+        path: 'system/dict-type/data',
+        name: 'SystemDictData',
+        component: () => import('@/views/system/dict/data/index.vue'),
+        // 字典数据是字典类型的下级详情页，后端菜单表里没有它，所以走前端静态路由；
+        // 路径挂在 /system/dict-type 下面，二级菜单继续高亮「字典类型」
+        meta: {
+          title: '字典数据',
+          icon: 'Tickets',
+          cacheName: 'SystemDictData',
+          modulePath: '/system',
+          activePath: '/system/dict-type',
+        },
+      },
     ],
   },
   {

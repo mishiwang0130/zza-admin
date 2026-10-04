@@ -28,7 +28,11 @@ const currentModule = computed(
     </div>
 
     <nav class="panel-body">
-      <PanelNavList v-if="currentModule" :items="currentModule.children" :current-path="route.path" />
+      <PanelNavList
+        v-if="currentModule"
+        :items="currentModule.children"
+        :current-path="route.meta.activePath ?? route.path"
+      />
       <div v-else class="empty-block">暂无可用菜单</div>
     </nav>
   </aside>

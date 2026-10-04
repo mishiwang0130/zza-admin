@@ -13,6 +13,8 @@ declare module 'vue-router' {
     cacheName?: string;
     /** 所属一级模块的绝对路径，图标栏据此高亮 */
     modulePath?: string;
+    /** 二级菜单里要高亮的项：详情页（如字典数据）用它指回列表页 */
+    activePath?: string;
     /** 免登录页面 */
     public?: boolean;
   }
