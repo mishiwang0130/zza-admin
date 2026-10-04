@@ -688,6 +688,19 @@ a {
   text-decoration: none;
 }
 
+.link-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--zz-primary-ink);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
 .status-tag {
   display: inline-flex;
   align-items: center;
@@ -702,6 +715,172 @@ a {
 .status-tag.is-on {
   background: var(--zz-primary-soft);
   color: var(--zz-primary-ink);
+}
+
+.status-tag.is-warn {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+/* ---- 图片上传 ---- */
+
+.image-uploader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.image-item {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  overflow: hidden;
+  border: 1px solid var(--zz-border);
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.image-item .el-image {
+  width: 100%;
+  height: 100%;
+}
+
+.image-missing {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  color: var(--zz-text-faint);
+  font-size: 12px;
+  place-items: center;
+}
+
+.image-cover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 1px 6px;
+  border-bottom-right-radius: 8px;
+  background: var(--zz-primary);
+  color: #fff;
+  font-size: 11px;
+}
+
+.image-actions {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  padding: 3px 0;
+  background: rgba(15, 23, 42, 0.55);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.image-item:hover .image-actions {
+  opacity: 1;
+}
+
+.image-actions button {
+  display: grid;
+  width: 22px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  place-items: center;
+}
+
+.image-actions button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.image-actions button:disabled {
+  color: rgba(255, 255, 255, 0.35);
+  cursor: not-allowed;
+}
+
+.image-add-inner {
+  display: flex;
+  width: 92px;
+  height: 92px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px dashed #d6d9de;
+  border-radius: 10px;
+  background: #fbfbfc;
+  color: var(--zz-text-faint);
+  font-size: 12px;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.image-add-inner:hover {
+  border-color: var(--zz-primary);
+  color: var(--zz-primary-ink);
+}
+
+.image-tip {
+  flex-basis: 100%;
+  color: var(--zz-text-faint);
+  font-size: 12px;
+}
+
+/* ---- 单文件上传 ---- */
+
+.file-uploader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ---- 详情抽屉 ---- */
+
+.detail-section {
+  margin-bottom: 18px;
+}
+
+.detail-section-title {
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--zz-border-light);
+  color: var(--zz-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.detail-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detail-images .el-image {
+  width: 96px;
+  height: 96px;
+  border: 1px solid var(--zz-border);
+  border-radius: 10px;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-list .status-tag {
+  height: 24px;
+  padding: 0 10px;
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
 }
 
 .inline-icon {

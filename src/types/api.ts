@@ -266,6 +266,15 @@ export interface DictDataFormReq {
 
 /* ------------------------------ 行政区划 ------------------------------ */
 
+/** 文件上传返回体：业务表引用文件时只存 fileId，展示地址按需重新签发 */
+export interface FileUploadRespVO {
+  fileId: string;
+  /** 对象存储中的对象名（key） */
+  objectName: string;
+  /** 预签名访问地址，有效期内可直接访问 */
+  url: string;
+}
+
 /** 行政区划节点：既作为逐级查询的结果，也作为整棵树的节点 */
 export interface AreaVO {
   id: string;
