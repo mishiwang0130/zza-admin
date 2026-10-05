@@ -13,6 +13,9 @@ import { formatDateTime, toNumber } from '@/utils/format';
  *
  * <p>后端只提供列表与状态流转两个接口（列表字段就是详情字段），所以不搭详情页，
  * 详情用抽屉展示同一行数据即可；状态流转只允许「待看房 → 已看房 / 已取消」。
+ *
+ * <p>预约表只存预约人 ID，昵称与手机号由后端按 ID 查 infra 用户表回填，
+ * 所以筛选条件里没有姓名/手机号（infra 不提供按手机号搜索），只能按用户 ID 精确查。
  */
 defineOptions({ name: 'RentalViewAppointmentIndex' });
 
@@ -31,8 +34,7 @@ const query = reactive({
   pageSize: 10,
   apartmentId: '',
   status: null as number | null,
-  name: '',
-  mobile: '',
+  userId: '',
   timeRange: [] as string[],
 });
 
@@ -44,8 +46,7 @@ async function loadList(): Promise<void> {
       pageSize: query.pageSize,
       apartmentId: query.apartmentId || undefined,
       status: query.status,
-      name: query.name.trim() || undefined,
-      mobile: query.mobile.trim() || undefined,
+      userId: query.userId.trim() || undefined,
       appointmentTimeStart: query.timeRange?.[0] || undefined,
       appointmentTimeEnd: query.timeRange?.[1] || undefined,
     });
@@ -64,11 +65,19 @@ function handleSearch(): void {
 function resetQuery(): void {
   query.apartmentId = '';
   query.status = null;
-  query.name = '';
-  query.mobile = '';
+  query.userId = '';
   query.timeRange = [];
   query.pageNum = 1;
   loadList();
+}
+
+/**
+ * 预约人展示名：用户被删掉或查不到时退化成「用户 #ID」
+ *
+ * @param row 预约行
+ */
+function personName(row: ViewAppointmentVO): string {
+  return row.userNickname || `用户 #${row.userId}`;
 }
 
 function handlePageChange(pageNum: number): void {
@@ -160,12 +169,13 @@ onMounted(async () => {
         </el-select>
       </div>
       <div class="filter-field">
-        <span class="filter-label">预约人</span>
-        <el-input v-model="query.name" placeholder="姓名，模糊匹配" clearable @keyup.enter="handleSearch" />
-      </div>
-      <div class="filter-field">
-        <span class="filter-label">手机号</span>
-        <el-input v-model="query.mobile" placeholder="模糊匹配" clearable @keyup.enter="handleSearch" />
+        <span class="filter-label">预约用户 ID</span>
+        <el-input
+          v-model="query.userId"
+          placeholder="按 App 用户 ID 精确查"
+          clearable
+          @keyup.enter="handleSearch"
+        />
       </div>
       <div class="filter-field">
         <span class="filter-label">看房时间</span>
@@ -189,21 +199,18 @@ onMounted(async () => {
         <el-table-column label="预约公寓" min-width="160">
           <template #default="{ row }">{{ row.apartmentName || '—' }}</template>
         </el-table-column>
-        <el-table-column label="预约人" min-width="180">
+        <el-table-column label="预约人" min-width="200">
           <template #default="{ row }">
             <div class="cell-user">
-              <span class="cell-user-avatar">{{ (row.name || '?').slice(0, 1) }}</span>
+              <span class="cell-user-avatar">{{ personName(row).slice(0, 1) }}</span>
               <div>
-                <div class="cell-user-name">{{ row.name || '—' }}</div>
-                <div class="cell-user-account">{{ row.mobile || '—' }}</div>
+                <div class="cell-user-name">{{ personName(row) }}</div>
+                <div class="cell-user-account">
+                  {{ row.userMobile || '手机号不可用' }}
+                  <span class="text-muted">· ID {{ row.userId }}</span>
+                </div>
               </div>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="预约用户" min-width="150">
-          <template #default="{ row }">
-            <span v-if="row.userNickname">{{ row.userNickname }}</span>
-            <span v-else class="text-muted">用户 #{{ row.userId }}</span>
           </template>
         </el-table-column>
         <el-table-column label="看房时间" min-width="170">
@@ -225,7 +232,7 @@ onMounted(async () => {
                 <button
                   v-has-perm="'rental:view-appointment:update-status'"
                   type="button"
-                  @click="changeStatus(row, STATUS_VIEWED, `确认「${row.name}」已完成看房？`)"
+                  @click="changeStatus(row, STATUS_VIEWED, `确认「${personName(row)}」已完成看房？`)"
                 >
                   标记已看房
                 </button>
@@ -233,7 +240,7 @@ onMounted(async () => {
                   v-has-perm="'rental:view-appointment:update-status'"
                   type="button"
                   class="is-danger"
-                  @click="changeStatus(row, STATUS_CANCELED, `确认取消「${row.name}」的看房预约？`)"
+                  @click="changeStatus(row, STATUS_CANCELED, `确认取消「${personName(row)}」的看房预约？`)"
                 >
                   取消
                 </button>
@@ -287,19 +294,19 @@ onMounted(async () => {
         <div class="detail-section">
           <div class="detail-section-title">预约人</div>
           <div class="meta-row">
-            <div class="meta-row-label">姓名</div>
-            <div class="meta-row-value">{{ detail.name || '—' }}</div>
+            <div class="meta-row-label">昵称</div>
+            <div class="meta-row-value">{{ detail.userNickname || '—' }}</div>
           </div>
           <div class="meta-row">
             <div class="meta-row-label">手机号</div>
-            <div class="meta-row-value">{{ detail.mobile || '—' }}</div>
+            <div class="meta-row-value">{{ detail.userMobile || '—' }}</div>
           </div>
           <div class="meta-row">
             <div class="meta-row-label">App 用户</div>
-            <div class="meta-row-value">
-              {{ detail.userNickname || '—' }}
-              <span class="cell-user-account">ID {{ detail.userId }}</span>
-            </div>
+            <div class="meta-row-value">ID {{ detail.userId }}</div>
+          </div>
+          <div v-if="!detail.userNickname && !detail.userMobile" class="form-tip" style="margin-bottom: 8px">
+            该用户已注销或查不到，昵称与手机号无法回填；预约记录本身不受影响。
           </div>
           <div class="meta-row">
             <div class="meta-row-label">备注</div>

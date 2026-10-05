@@ -292,13 +292,19 @@ export interface LeaseUpdateReq {
 /** 看房预约：列表与详情弹窗共用 */
 export interface ViewAppointmentVO {
   id: string;
+  /** 预约人 App 用户 ID */
   userId: string;
-  userNickname: string;
+  /**
+   * 预约人昵称：后端按 userId 查 infra 用户表回填。
+   *
+   * <p>预约表只存 ID、不快照用户资料，所以用户改了资料这里就是最新值；
+   * 用户已删除或查不到时为 null，不影响这条预约本身。
+   */
+  userNickname: string | null;
+  /** 预约人手机号，来源同上 */
+  userMobile: string | null;
   apartmentId: string;
   apartmentName: string;
-  /** 预约人姓名（下单时快照） */
-  name: string;
-  mobile: string;
   appointmentTime: string;
   /** 1 待看房、2 已取消、3 已看房 */
   status: number;
@@ -309,11 +315,10 @@ export interface ViewAppointmentVO {
 
 /** 看房预约分页入参 */
 export interface ViewAppointmentPageQuery extends PageQuery {
+  /** 预约人 App 用户 ID，精确匹配 */
   userId?: string;
   apartmentId?: string;
   status?: number | null;
-  name?: string;
-  mobile?: string;
   appointmentTimeStart?: string;
   appointmentTimeEnd?: string;
 }
