@@ -722,6 +722,11 @@ a {
   color: #c2410c;
 }
 
+.status-tag.is-danger {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
 /* ---- 图片上传 ---- */
 
 .image-uploader {

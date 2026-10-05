@@ -39,3 +39,30 @@ export function toNumber(value?: string | number | null): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 }
+
+/** 字节与更大单位的换算基数 */
+const BYTES_PER_KB = 1024;
+const BYTES_PER_MB = BYTES_PER_KB * 1024;
+
+/**
+ * 格式化文件大小（后端把 Long 序列化成字符串，所以入参可能是 string）。
+ *
+ * @param value 文件字节数
+ * @returns 形如 {@code 512 B} / {@code 12.3 KB} / {@code 2.4 MB} 的文本，空值时返回占位符
+ */
+export function formatFileSize(value?: string | number | null): string {
+  if (value === null || value === undefined || value === '') {
+    return '—';
+  }
+  const bytes = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(bytes) || bytes < 0) {
+    return '—';
+  }
+  if (bytes < BYTES_PER_KB) {
+    return `${bytes} B`;
+  }
+  if (bytes < BYTES_PER_MB) {
+    return `${(bytes / BYTES_PER_KB).toFixed(1)} KB`;
+  }
+  return `${(bytes / BYTES_PER_MB).toFixed(1)} MB`;
+}

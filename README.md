@@ -20,6 +20,8 @@ npm run build       # 类型检查 + 生产构建
 ## 接口约定
 
 - 所有请求都走网关：`/api/infra/admin-api/**`（`/api` 网关前缀 + `infra` 服务名 + `/admin-api` 端前缀）。
+- 请求层按服务各建一个客户端：`api` → infra、`rentalApi` → rental、`aiAgentApi` → ai-agent；
+  新增服务时在 `src/api/request.ts` 加一行 `createServiceApi(...)` 即可。
 - 统一响应体 `{ code, msg, data }`，成功码 `200`；业务失败也是 HTTP 200，由 `code` 表达。
 - 鉴权头 `Authorization: Bearer <accessToken>`；`accessToken` 过期时用 `refreshToken` 静默续期。
 - **后端把 `Long` 序列化成字符串**，所以用户 ID、菜单 ID、分页 `total` 在前端都是 `string`，参与计算时要显式转换。
@@ -28,11 +30,11 @@ npm run build       # 类型检查 + 生产构建
 
 ```
 src
-├── api          请求封装与按资源拆分的接口（infra：auth / user / role / menu / dictType / dictData / area / file；rental：apartment / room / feeItem / lease / viewAppointment）
+├── api          请求封装与按资源拆分的接口（infra：auth / user / role / menu / dictType / dictData / area / file；rental：apartment / room / feeItem / lease / viewAppointment；ai-agent：aiAgentKnowledge / aiAgentConversation）
 ├── router       静态路由 + 由后端菜单生成的动态路由
 ├── store        Pinia：登录态、菜单与动态路由、标签页
 ├── layout       双栏导航外壳（图标栏 / 二级菜单 / 顶栏 / 标签页 / 内容区）
-├── views        页面：登录、概览、系统管理（用户 / App 用户 / 角色 / 菜单 / 字典）、租房管理（公寓 / 房间 / 费用项 / 租约 / 看房预约）、个人中心、403 / 404
+├── views        页面：登录、概览、系统管理（用户 / App 用户 / 角色 / 菜单 / 字典）、租房管理（公寓 / 房间 / 费用项 / 租约 / 看房预约）、智能客服（知识库 / 会话记录）、个人中心、403 / 404
 ├── components   通用组件（图标渲染、递归菜单、省市区级联、字典下拉、图片上传、文件上传）
 ├── directives   v-has-perm 按钮权限指令
 ├── styles       主题变量与全局样式
@@ -72,3 +74,16 @@ src
   `userId` 查 infra 用户表回填。所以筛选条件里没有姓名/手机号（infra 只提供按 ID 批量查、
   不提供按手机号搜索），只能按用户 ID 精确查；用户已注销时昵称/手机号返回 null，
   列表与详情会退化成「用户 #ID / 手机号不可用」并给出说明。
+- **智能客服**：菜单种子（`zza-cloud/sql/ai-agent.sql` 的 44~49）把组件路径写死为
+  `ai-agent/knowledge/index` 与 `ai-agent/conversation/index`，页面必须放在这两个路径上，
+  `defineOptions({ name })` 要与 `cacheNameOf` 推导出的 `AiAgentKnowledgeIndex` /
+  `AiAgentConversationIndex` 逐字一致（目录名带连字符时按非字母数字切段再首字母大写），
+  否则标签页的 keep-alive 匹配不上。
+  知识库的解析在后端是 **MQ 异步**的：上传与重建索引接口只落库 + 投递消息，解析切片与向量化由消费者执行，
+  文档先显示「待索引」，页面在有待索引文档时每 3 秒静默刷新列表（全部出结果后自动停），
+  上传请求只等文件传完（60 秒超时），所以不用再为「解析慢」加长超时；
+  后端没起 RocketMQ 时可把 `zza.ai-agent.knowledge.parse-mode` 改成 `sync` 退回同步解析。
+  检索调试与线上同一套检索链路，
+  但刻意不设相似度阈值（低于线上 0.5 阈值的片段也会返回），命中为空说明向量库里确实没有相关内容。
+  会话记录是只读排查页：不做人工接管，明细里能看到每轮回答的来源、模型与耗时；
+  会话只存 App 用户 ID，infra 没有按 ID 查昵称的接口，所以列表与详情只显示「用户 #ID」。

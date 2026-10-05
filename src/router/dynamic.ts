@@ -61,13 +61,18 @@ function resolveView(component: string): (() => Promise<unknown>) | undefined {
  * 由组件路径推导 keep-alive 用的组件名
  *
  * <p>约定：页面组件用 defineOptions 声明同名，例如 system/user/index → SystemUserIndex。
+ * 目录名里带连字符时按非字母数字切段再首字母大写，例如 ai-agent/knowledge/index →
+ * AiAgentKnowledgeIndex（连字符保留在组件名里会让 lint 报「不是 PascalCase」）。
  */
 export function cacheNameOf(component: string): string | undefined {
   const parts = (component ?? '').split('/').filter(Boolean);
   if (!parts.length) {
     return undefined;
   }
-  return parts.map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join('');
+  return parts
+    .flatMap((part) => part.split(/[^A-Za-z0-9]+/).filter(Boolean))
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
 }
 
 /** 去掉路径首尾斜杠 */

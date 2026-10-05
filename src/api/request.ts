@@ -206,3 +206,6 @@ export const api = createServiceApi(API_BASE);
 
 /** rental 服务（公寓、房间、费用项、租约、看房预约） */
 export const rentalApi = createServiceApi(`${GATEWAY_PREFIX}/rental/admin-api`);
+
+/** ai-agent 服务（知识库文档、语义检索调试、会话记录） */
+export const aiAgentApi = createServiceApi(`${GATEWAY_PREFIX}/ai-agent/admin-api`);
