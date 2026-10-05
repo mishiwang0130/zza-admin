@@ -297,6 +297,49 @@ export interface FileUploadRespVO {
   url: string;
 }
 
+/* ------------------------------ 大文件分片上传 ------------------------------ */
+
+/**
+ * 分片上传初始化入参
+ *
+ * <p>fileMd5 只用于后端定位同一条续传会话，不做秒传去重；同一个文件重复 init 会命中同一会话。
+ */
+export interface FileChunkInitReqVO {
+  /** 原始文件名，最长 255，仅用于展示与落库 */
+  fileName: string;
+  /** 文件总字节数，必须 > 0 且 ≤ 200MB */
+  fileSize: number;
+  /** MIME 类型，最长 128；不带的话下载时是 application/octet-stream */
+  contentType?: string;
+  /** 文件 MD5（32 位十六进制） */
+  fileMd5: string;
+}
+
+/** 分片上传初始化返回体：chunkSize / totalChunks 以服务端为准，客户端不要自己算 */
+export interface FileChunkInitRespVO {
+  /** 会话 ID，后续 upload / complete / abort 都用它 */
+  uploadId: string;
+  /** 分片大小（字节），除最后一片外每片都必须按它切，不要写死 */
+  chunkSize: number;
+  /** 总分片数 */
+  totalChunks: number;
+  /** 已经传完的分片序号（升序），续传时跳过这些片 */
+  uploadedPartNumbers: number[];
+}
+
+/** 上传单个分片的返回体 */
+export interface FileChunkUploadRespVO {
+  /** 分片序号（从 1 开始） */
+  partNumber: number;
+  /** 对象存储返回的分片 ETag */
+  etag: string;
+}
+
+/** 分片上传 complete / abort 的公共入参 */
+export interface FileChunkSessionReqVO {
+  uploadId: string;
+}
+
 /** 行政区划节点：既作为逐级查询的结果，也作为整棵树的节点 */
 export interface AreaVO {
   id: string;

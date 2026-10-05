@@ -127,6 +127,12 @@ function handleResponse(response: AxiosResponse<Result<unknown>>) {
 
 async function handleResponseError(error: AxiosError<Result<unknown>>, client: AxiosInstance) {
   const { response, config } = error;
+
+  // 主动取消（用户点「取消上传」）：这是预期内的中断，不是网络故障，不要弹错误提示
+  if (axios.isCancel(error)) {
+    return Promise.reject(error);
+  }
+
   const retriable = config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined;
   const url = retriable?.url;
 
