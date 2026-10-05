@@ -10,7 +10,7 @@ import { clearTokens, getAccessToken, getRefreshToken, setTokens } from '@/utils
 import type { Result, TokenResp } from '@/types/api';
 
 /** 后端统一成功码：CommonErrorConstant.SUCCESS */
-export const SUCCESS_CODE = 1000000000;
+export const SUCCESS_CODE = 200;
 
 /** 网关前缀（默认 /api），dev 由 Vite 代理转发到网关 */
 const GATEWAY_PREFIX = import.meta.env.VITE_API_BASE || '/api';

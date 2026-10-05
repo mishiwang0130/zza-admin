@@ -20,7 +20,7 @@ npm run build       # 类型检查 + 生产构建
 ## 接口约定
 
 - 所有请求都走网关：`/api/infra/admin-api/**`（`/api` 网关前缀 + `infra` 服务名 + `/admin-api` 端前缀）。
-- 统一响应体 `{ code, msg, data }`，成功码 `1000000000`；业务失败也是 HTTP 200，由 `code` 表达。
+- 统一响应体 `{ code, msg, data }`，成功码 `200`；业务失败也是 HTTP 200，由 `code` 表达。
 - 鉴权头 `Authorization: Bearer <accessToken>`；`accessToken` 过期时用 `refreshToken` 静默续期。
 - **后端把 `Long` 序列化成字符串**，所以用户 ID、菜单 ID、分页 `total` 在前端都是 `string`，参与计算时要显式转换。
 
@@ -32,7 +32,7 @@ src
 ├── router       静态路由 + 由后端菜单生成的动态路由
 ├── store        Pinia：登录态、菜单与动态路由、标签页
 ├── layout       双栏导航外壳（图标栏 / 二级菜单 / 顶栏 / 标签页 / 内容区）
-├── views        页面：登录、概览、系统管理（用户 / 角色 / 菜单 / 字典）、租房管理（公寓 / 房间 / 费用项 / 租约 / 看房预约）、个人中心、403 / 404
+├── views        页面：登录、概览、系统管理（用户 / App 用户 / 角色 / 菜单 / 字典）、租房管理（公寓 / 房间 / 费用项 / 租约 / 看房预约）、个人中心、403 / 404
 ├── components   通用组件（图标渲染、递归菜单、省市区级联、字典下拉、图片上传、文件上传）
 ├── directives   v-has-perm 按钮权限指令
 ├── styles       主题变量与全局样式
@@ -62,7 +62,12 @@ src
 - **租房管理**：公寓与房间没有删除接口，下架（`publishStatus = 0`）就是对外不可见；
   租约也没有删除接口，作废靠状态置为「已取消」。租约的状态流转按后端状态机走，
   页面只列当前状态允许的目标状态（`utils/rental-options.ts`），不让用户点了才被拒绝。
-  承租人目前只能手填 App 用户 ID：infra 还没有提供 App 用户的查询接口。
+  承租人用远程搜索下拉选择（调 infra 的 `/app-user/page`，选项显示「昵称（手机号）」、提交的仍是 `userId`），
+  所以账号需要 `infra:app-user:query` 权限（对应「系统管理 → App 用户」菜单）；
+  列表与详情的承租人信息由后端按 `userId` 回填 `userNickname` / `userMobile`。
+- **App 用户**：账号由 App 端注册，后台只提供只读分页查询（`/api/infra/admin-api/app-user/page`），
+  关键字同时匹配昵称（前后模糊）与手机号（前缀模糊）。菜单与路由由后端菜单数据下发，
+  页面文件放在组件路径对应的 `src/views/system/appUser/index.vue`。
 - **看房预约**：预约表只存预约人 ID，不再快照姓名与手机号，昵称与手机号由后端按
   `userId` 查 infra 用户表回填。所以筛选条件里没有姓名/手机号（infra 只提供按 ID 批量查、
   不提供按手机号搜索），只能按用户 ID 精确查；用户已注销时昵称/手机号返回 null，

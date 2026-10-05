@@ -143,6 +143,28 @@ export interface UserUpdateReq {
   roleIds: string[];
 }
 
+/* ------------------------------ App 用户 ------------------------------ */
+
+/** App 用户返回体：账号由 App 端注册，后台只读 */
+export interface AppUserVO {
+  id: string;
+  nickname: string;
+  mobile: string;
+  /** 0 启用、1 停用 */
+  status: number;
+  createTime: string;
+}
+
+/**
+ * App 用户分页入参
+ *
+ * <p>keyword 是后端唯一的搜索入口：昵称前后模糊、手机号前缀模糊，两个条件都可为空。
+ */
+export interface AppUserPageQuery extends PageQuery {
+  keyword?: string;
+  status?: number | null;
+}
+
 /** 角色返回体 */
 export interface RoleVO {
   id: string;

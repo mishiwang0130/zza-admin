@@ -2,10 +2,12 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus';
 import { Plus, Refresh } from '@element-plus/icons-vue';
+import { pageAppUser } from '@/api/appUser';
 import { createLease, getLease, pageLease, updateLease, updateLeaseStatus } from '@/api/lease';
 import { listApartmentSimple } from '@/api/apartment';
 import { listRoomSimpleByApartment } from '@/api/room';
 import FileUploader from '@/components/FileUploader.vue';
+import type { AppUserVO } from '@/types/api';
 import type { ApartmentSimple, LeaseDetail, LeasePageItem, RoomSimple } from '@/types/rental';
 import {
   LEASE_SOURCE_OPTIONS,
@@ -130,7 +132,7 @@ const createForm = reactive({
 });
 
 const createRules: FormRules = {
-  userId: [{ required: true, message: '请输入承租人的 App 用户 ID', trigger: 'blur' }],
+  userId: [{ required: true, message: '请选择承租人', trigger: 'change' }],
   apartmentId: [{ required: true, message: '请选择签约公寓', trigger: 'change' }],
   roomId: [{ required: true, message: '请选择签约房间', trigger: 'change' }],
   leaseStartDate: [{ required: true, message: '请选择租约开始日期', trigger: 'change' }],
@@ -150,6 +152,92 @@ const createRules: FormRules = {
   rent: [{ required: true, message: '请输入签约月租金', trigger: 'blur' }],
   remark: [{ max: 500, message: '备注不能超过 500 个字符', trigger: 'blur' }],
 };
+
+/* ---------------------------- 承租人远程搜索 ---------------------------- */
+
+/**
+ * 承租人选择器：调 infra 的 App 用户分页接口远程搜索，选项文本「昵称（手机号）」、值为 id。
+ *
+ * <p>这个接口在 infra 上，需要 infra:app-user:query 权限；超管不受限，
+ * 普通角色要在「角色管理」里勾上「App 用户」菜单，否则搜索会 403。
+ */
+const tenantOptions = ref<AppUserVO[]>([]);
+const tenantLoading = ref(false);
+/** 已选中的用户：搜索结果会整批替换，把它单独留着，选中项才不会退化成裸 ID */
+const selectedTenant = ref<AppUserVO | null>(null);
+/** 请求序号：只认最后一次输入的结果，避免慢请求覆盖新结果 */
+let tenantSearchSeq = 0;
+
+/**
+ * 承租人展示文本：昵称（手机号）
+ *
+ * @param nickname 昵称
+ * @param mobile 手机号
+ * @returns 拼好的文本，两者都为空时返回占位符
+ */
+function tenantTextOf(nickname?: string | null, mobile?: string | null): string {
+  const name = (nickname ?? '').trim();
+  const phone = (mobile ?? '').trim();
+  if (name && phone) {
+    return `${name}（${phone}）`;
+  }
+  return name || phone || '—';
+}
+
+/** 下拉选项文本：都为空时退化成用户 ID，保证选项仍可辨认 */
+function tenantOptionLabel(user: AppUserVO): string {
+  const text = tenantTextOf(user.nickname, user.mobile);
+  return text === '—' ? `用户 #${user.id}` : text;
+}
+
+/** 选项列表：把选中项并进来，远程搜索换掉结果后选中项仍能显示文本 */
+const tenantOptionList = computed<AppUserVO[]>(() => {
+  const selected = selectedTenant.value;
+  if (!selected || tenantOptions.value.some((item) => item.id === selected.id)) {
+    return tenantOptions.value;
+  }
+  return [selected, ...tenantOptions.value];
+});
+
+/** 远程搜索承租人：输入昵称或手机号，一次取 20 条 */
+async function searchTenants(keyword: string): Promise<void> {
+  const seq = ++tenantSearchSeq;
+  tenantLoading.value = true;
+  try {
+    const page = await pageAppUser({
+      pageNum: 1,
+      pageSize: 20,
+      keyword: keyword.trim() || undefined,
+      status: null,
+    });
+    if (seq === tenantSearchSeq) {
+      tenantOptions.value = page.records ?? [];
+    }
+  } catch {
+    // 请求层已经弹过后端错误（例如缺少 infra:app-user:query 的 403），这里只清空下拉
+    if (seq === tenantSearchSeq) {
+      tenantOptions.value = [];
+    }
+  } finally {
+    if (seq === tenantSearchSeq) {
+      tenantLoading.value = false;
+    }
+  }
+}
+
+/** 展开下拉且还没结果时先拉一页，省得必须打字才看得到用户 */
+function handleTenantVisible(visible: boolean): void {
+  if (visible && !tenantOptions.value.length) {
+    searchTenants('');
+  }
+}
+
+/** 选中 / 清空承租人：记住选中项用于文本回显 */
+function handleTenantChange(userId: string): void {
+  selectedTenant.value = userId
+    ? (tenantOptionList.value.find((item) => item.id === userId) ?? null)
+    : null;
+}
 
 /** 选择公寓后加载该公寓的房间，并把房间选择清掉 */
 async function handleCreateApartmentChange(apartmentId: string): Promise<void> {
@@ -189,6 +277,8 @@ function openCreate(): void {
   createForm.sourceType = 1;
   createForm.remark = '';
   createRooms.value = [];
+  tenantOptions.value = [];
+  selectedTenant.value = null;
   if (createForm.apartmentId) {
     handleCreateApartmentChange(createForm.apartmentId);
   }
@@ -238,6 +328,11 @@ const editLoading = ref(false);
 const editRef = ref<FormInstance>();
 const editing = ref<LeaseDetail | null>(null);
 const editLocked = computed(() => (editing.value ? isLeaseFinal(editing.value.status) : false));
+
+/** 编辑回显：承租人用昵称 + 手机号拼展示文本，不显示裸 ID */
+const editingTenantText = computed(() =>
+  editing.value ? tenantTextOf(editing.value.userNickname, editing.value.userMobile) : '—',
+);
 
 const editForm = reactive({
   contractFileId: '',
@@ -460,8 +555,7 @@ onMounted(async () => {
         </el-table-column>
         <el-table-column label="承租人" min-width="160">
           <template #default="{ row }">
-            <span v-if="row.userNickname">{{ row.userNickname }}</span>
-            <span v-else class="text-muted">用户 #{{ row.userId }}</span>
+            <div class="cell-user-name">{{ row.userNickname || '—' }}</div>
             <div v-if="row.userMobile" class="cell-user-account">{{ row.userMobile }}</div>
           </template>
         </el-table-column>
@@ -529,10 +623,28 @@ onMounted(async () => {
       destroy-on-close
     >
       <el-form ref="createRef" :model="createForm" :rules="createRules" label-width="112px">
-        <el-form-item label="承租人用户 ID" prop="userId">
-          <el-input v-model="createForm.userId" placeholder="App 端用户 ID" style="width: 200px" />
+        <el-form-item label="承租人" prop="userId">
+          <el-select
+            v-model="createForm.userId"
+            placeholder="输入昵称或手机号搜索"
+            filterable
+            remote
+            clearable
+            :remote-method="searchTenants"
+            :loading="tenantLoading"
+            style="width: 300px"
+            @visible-change="handleTenantVisible"
+            @change="handleTenantChange"
+          >
+            <el-option
+              v-for="item in tenantOptionList"
+              :key="item.id"
+              :label="tenantOptionLabel(item)"
+              :value="item.id"
+            />
+          </el-select>
           <div class="form-tip">
-            用户端账号目前只能手填 ID；等 infra 提供 App 用户查询接口后换成用户选择器
+            输入昵称或手机号搜索 App 用户；账号需要「App 用户」菜单权限，否则搜索会被拒绝
           </div>
         </el-form-item>
         <el-form-item label="签约公寓" prop="apartmentId">
@@ -648,6 +760,10 @@ onMounted(async () => {
         style="margin-bottom: 14px"
       />
       <el-form ref="editRef" :model="editForm" :rules="editRules" label-width="112px">
+        <el-form-item label="承租人">
+          <span class="text-strong">{{ editingTenantText }}</span>
+          <div class="form-tip">签约主体不可修改</div>
+        </el-form-item>
         <el-form-item label="租约起止">
           <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
             <el-date-picker
@@ -775,12 +891,6 @@ onMounted(async () => {
           <div class="meta-row">
             <div class="meta-row-label">手机号</div>
             <div class="meta-row-value">{{ detail.userMobile || '—' }}</div>
-          </div>
-          <div class="meta-row">
-            <div class="meta-row-label">App 用户</div>
-            <div class="meta-row-value">
-              <span class="cell-user-account">ID {{ detail.userId }}</span>
-            </div>
           </div>
           <div class="meta-row">
             <div class="meta-row-label">备注</div>
