@@ -16,6 +16,7 @@ import {
   documentStatusClass,
   scoreText,
 } from '@/utils/ai-agent-options';
+import { COMMON_CITY, listCityLabels } from '@/utils/city-options';
 import { formatDateTime, formatFileSize, toNumber } from '@/utils/format';
 
 /**
@@ -32,9 +33,6 @@ import { formatDateTime, formatFileSize, toNumber } from '@/utils/format';
  * {@code AiAgentKnowledgeIndex} 逐字一致，否则标签页的 keep-alive 缓存匹配不上。
  */
 defineOptions({ name: 'AiAgentKnowledgeIndex' });
-
-/** 平台级通用文档的城市标签：与后端 zza.ai-agent.rag.common-city 保持一致 */
-const COMMON_CITY = '通用';
 
 /** 上传文件大小上限（MB），与 spring.servlet.multipart.max-file-size 保持一致 */
 const MAX_FILE_SIZE_MB = 20;
@@ -57,6 +55,28 @@ const loading = ref(false);
 const list = ref<KnowledgeDocumentVO[]>([]);
 const total = ref(0);
 
+/** 区划树里的标准城市标签：上传文档时只能从这里选，保证与小程序端传的城市名逐字一致 */
+const standardCityLabels = ref<string[]>([]);
+
+/** 城市下拉是否在加载：区划树是一次拉全量，慢的时候给下拉一个 loading */
+const cityLabelsLoading = ref(false);
+
+/**
+ * 加载城市标签选项
+ *
+ * <p>区划树拉不到不该让整页不可用：列表照常展示，上传弹窗打开时会再触发一次重试。
+ */
+async function loadCityLabels(): Promise<void> {
+  cityLabelsLoading.value = true;
+  try {
+    standardCityLabels.value = await listCityLabels();
+  } catch {
+    standardCityLabels.value = [];
+  } finally {
+    cityLabelsLoading.value = false;
+  }
+}
+
 const query = reactive({
   pageNum: 1,
   pageSize: 10,
@@ -68,10 +88,15 @@ const query = reactive({
 /** 正在重建索引的文档 ID：按行锁按钮，避免同一行重复提交 */
 const rebuildingId = ref('');
 
-/** 已加载文档里出现过的城市标签：给检索调试的城市下拉做选项 */
+/**
+ * 筛选与检索调试的城市下拉：标准城市打底，再并入已加载文档里出现过的城市值。
+ *
+ * <p>并历史值是为了兼容早期手填时代留下的脏数据 —— 比如「杭州」这种对不上的标签，
+ * 得先能筛出来才能重建索引。
+ */
 const cityOptions = computed(() => {
-  const cities = list.value.map((item) => item.city).filter((city) => Boolean(city));
-  return Array.from(new Set([COMMON_CITY, ...cities]));
+  const fromDocuments = list.value.map((item) => item.city).filter((city) => Boolean(city));
+  return Array.from(new Set([COMMON_CITY, ...standardCityLabels.value, ...fromDocuments]));
 });
 
 /**
@@ -177,7 +202,7 @@ const uploading = ref(false);
 const uploadPercent = ref(0);
 const uploadRef = ref<UploadInstance>();
 const uploadFile = ref<File | null>(null);
-const uploadCity = ref('');
+const uploadCity = ref(COMMON_CITY);
 
 /** 上传按钮文案：接口只等文件传完 + 投递消息，网络传完之后很快就返回 */
 const uploadButtonText = computed(() =>
@@ -192,9 +217,13 @@ function handleFileChange(file: UploadFile): void {
 
 function openUpload(): void {
   uploadFile.value = null;
-  uploadCity.value = '';
+  uploadCity.value = COMMON_CITY;
   uploadPercent.value = 0;
   uploadRef.value?.clearFiles();
+  // 首次进页面时区划树可能还没回来，或者上次拉失败了：打开弹窗再补一次
+  if (!standardCityLabels.value.length) {
+    void loadCityLabels();
+  }
   uploadVisible.value = true;
 }
 
@@ -327,7 +356,10 @@ function resetSearch(): void {
   searched.value = false;
 }
 
-onMounted(loadList);
+onMounted(() => {
+  void loadList();
+  void loadCityLabels();
+});
 </script>
 
 <template>
@@ -573,15 +605,20 @@ onMounted(loadList);
 
       <div class="filter-field upload-city">
         <span class="filter-label">城市标签</span>
-        <el-input
+        <el-select
           v-model="uploadCity"
-          maxlength="32"
-          show-word-limit
+          :loading="cityLabelsLoading"
+          filterable
           :disabled="uploading"
-          placeholder="留空按「通用」处理"
-        />
+          placeholder="请选择城市"
+        >
+          <el-option :label="`${COMMON_CITY}（平台级）`" :value="COMMON_CITY" />
+          <el-option v-for="city in standardCityLabels" :key="city" :label="city" :value="city" />
+        </el-select>
         <div class="form-tip">
-          平台级通用条款留空即可；按城市维护的制度（如某市租赁办法）填城市名，小程序提问选城市时会一起召回。
+          城市只能选、不能填：小程序提问时传的是城市选择器里的城市名，后台按「选中城市 + 通用」
+          精确匹配，手填「深圳」「杭州」这类写法与「深圳市」「杭州市」对不上，文档会被静默过滤掉。
+          平台级通用条款选「通用」即可，任何城市提问都会一起召回。
         </div>
       </div>
 
@@ -617,7 +654,8 @@ onMounted(loadList);
   width: 100%;
 }
 
-.upload-city :deep(.el-input) {
+.upload-city :deep(.el-input),
+.upload-city :deep(.el-select) {
   width: 100%;
 }
 
